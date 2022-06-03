@@ -15,6 +15,7 @@ require (
 	github.com/volatiletech/null/v8 v8.1.2
 	github.com/volatiletech/sqlboiler/v4 v4.9.2
 	github.com/volatiletech/strmangle v0.0.2
+	github.com/golang/mock v1.6.0
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
 )
 

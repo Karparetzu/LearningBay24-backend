@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/volatiletech/null/v8"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,11 +16,20 @@ import (
 	"learningbay24.de/backend/dbi"
 	"learningbay24.de/backend/models"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
 )
+
+type CourseApiService interface {
+	GetCourseById(c *gin.Context)
+	DeleteUserFromCourse(c *gin.Context)
+	GetUsersInCourse(c *gin.Context)
+	GetCoursesFromUser(c *gin.Context)
+	DeleteCourse(c *gin.Context)
+	CreateCourse(c *gin.Context)
+	EnrollUser(c *gin.Context)
+	UpdateCourseById(c *gin.Context)
+}
 
 type PublicController struct {
 	Database *sql.DB
@@ -320,15 +331,4 @@ func (f *PublicController) Register(c *gin.Context) {
 	newUser.Password = nil
 	c.Header("Access-Control-Allow-Origin", "*")
 	c.IndentedJSON(http.StatusCreated, newUser)
-}
-
-type ApiService interface {
-	GetCourseById(c *gin.Context)
-	DeleteUserFromCourse(c *gin.Context)
-	GetUsersInCourse(c *gin.Context)
-	GetCoursesFromUser(c *gin.Context)
-	DeleteCourse(c *gin.Context)
-	CreateCourse(c *gin.Context)
-	EnrollUser(c *gin.Context)
-	UpdateCourseById(c *gin.Context)
 }
