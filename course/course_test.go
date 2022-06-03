@@ -1,41 +1,46 @@
 package course
 
 import (
-	"database/sql"
 	"github.com/DATA-DOG/go-sqlmock"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/stretchr/testify/assert"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"learningbay24.de/backend/models"
 	"regexp"
 	"testing"
 )
 
-func TestSqlBoilerWithMock(t *testing.T) {
-	// Mock DB instance by sqlmock
+var c = &models.Course{
+	ID:        1,
+	Name:      "Testname",
+	EnrollKey: "12345",
+	ForumID:   1,
+}
+
+func TestGetCourse(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected", err)
 	}
 
-	// Inject mock instance into boil.
 	oldDB := boil.GetDB()
+	ctrl := &PublicController{db}
+
 	defer func() {
-		db.Close()
+		err := db.Close()
+		if err != nil {
+			t.Fatalf("an error '%s' was not expected", err)
+		}
 		boil.SetDB(oldDB)
 	}()
 	boil.SetDB(db)
 
-	// Create mock data with specific columns
-	mockShipperRows := sqlmock.NewRows([]string{"id", "column_name"}).AddRow(1, 123)
+	rows := sqlmock.NewRows([]string{"ID", "Name", "Description", "EnrollKey", "ForumID"}).AddRow(c.ID, c.Name, null.String{}, c.EnrollKey, c.ForumID)
+	query := regexp.QuoteMeta("select * from `course` where `id`=? and `deleted_at` is null")
+	mock.ExpectQuery(query).WithArgs(c.ID).WillReturnRows(rows).RowsWillBeClosed()
 
-	// Use regexp to avoid comparing query failed
-	mockQueryFindShipper := regexp.QuoteMeta("SELECT * FROM `objects` WHERE (column_name=?) AND (`objects`.deleted_at is null) LIMIT 1;")
-
-	// Mock a data
-	mock.ExpectQuery(mockQueryFindShipper).WithArgs(123).
-		WillReturnRows(mockShipperRows).
-		RowsWillBeClosed()
-
-	// Mock an error
-	mock.ExpectQuery(mockQueryFindShipper).WithArgs(124).
-		WillReturnError(sql.ErrNoRows).
-		RowsWillBeClosed()
+	course, err := ctrl.GetCourse(c.ID)
+	assert.NotNil(t, course)
+	assert.NoError(t, err)
 }
