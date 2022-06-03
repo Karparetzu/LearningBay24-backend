@@ -33,7 +33,8 @@ func (f *PublicController) GetCourseById(c *gin.Context) {
 		return
 	}
 	//Fetch Data from Database with Backend function
-	course, err := course.GetCourse(f.Database, id)
+	pCon := &course.PublicController{Database: f.Database}
+	course, err := pCon.GetCourse(id)
 	if err != nil {
 		log.Errorf("Unable to get course: %s\n", err.Error())
 		c.IndentedJSON(http.StatusBadRequest, err.Error())
@@ -58,7 +59,8 @@ func (f *PublicController) DeleteUserFromCourse(c *gin.Context) {
 		return
 	}
 	//Fetch Data from Database with Backend function
-	err = course.DeleteUserFromCourse(f.Database, id, user_id)
+	pCon := &course.PublicController{Database: f.Database}
+	err = pCon.DeleteUserFromCourse(id, user_id)
 	if err != nil {
 		log.Errorf("Unable to delete user from course: %s\n", err.Error())
 		c.IndentedJSON(http.StatusBadRequest, err.Error())
@@ -80,7 +82,8 @@ func (f *PublicController) GetUsersInCourse(c *gin.Context) {
 		return
 	}
 	//Fetch Data from Database with Backend function
-	users, err := course.GetUsersInCourse(f.Database, id)
+	pCon := &course.PublicController{Database: f.Database}
+	users, err := pCon.GetUsersInCourse(id)
 	if err != nil {
 		log.Errorf("Unable to get users in course: %s\n", err.Error())
 		c.IndentedJSON(http.StatusBadRequest, err.Error())
@@ -101,7 +104,8 @@ func (f *PublicController) GetCoursesFromUser(c *gin.Context) {
 		return
 	}
 	//Fetch Data from Database with Backend function
-	courses, err := course.GetCoursesFromUser(f.Database, user_id)
+	pCon := &course.PublicController{Database: f.Database}
+	courses, err := pCon.GetCoursesFromUser(user_id)
 	if err != nil {
 		log.Errorf("Unable to get courses from user: %s\n", err.Error())
 		c.IndentedJSON(http.StatusBadRequest, err.Error())
@@ -123,7 +127,8 @@ func (f *PublicController) DeleteCourse(c *gin.Context) {
 		return
 	}
 	//Deactivate Data from Database with Backend function
-	course, err := course.DeleteCourse(f.Database, id)
+	pCon := &course.PublicController{Database: f.Database}
+	course, err := pCon.DeleteCourse(id)
 	//Return Status and Data in JSON-Format
 	if err != nil {
 		log.Errorf("Unable to delete course: %s\n", err.Error())
@@ -180,7 +185,8 @@ func (f *PublicController) CreateCourse(c *gin.Context) {
 		return
 	}
 
-	id, err := course.CreateCourse(f.Database, name, null.StringFrom(description), enroll_key, user_id)
+	pCon := &course.PublicController{Database: f.Database}
+	id, err := pCon.CreateCourse(name, null.StringFrom(description), enroll_key, user_id)
 	if err != nil {
 		log.Errorf("Unable to create course: %s\n", err.Error())
 		c.IndentedJSON(http.StatusBadRequest, err.Error())
@@ -213,7 +219,8 @@ func (f *PublicController) EnrollUser(c *gin.Context) {
 		}
 	}
 
-	_, err = course.EnrollUser(f.Database, user_id, id, newCourse.EnrollKey)
+	pCon := &course.PublicController{Database: f.Database}
+	_, err = pCon.EnrollUser(user_id, id, newCourse.EnrollKey)
 	if err != nil {
 		log.Errorf("Unable to enroll user in course: %s\n", err.Error())
 		c.IndentedJSON(http.StatusBadRequest, err.Error())
@@ -237,7 +244,9 @@ func (f *PublicController) UpdateCourseById(c *gin.Context) {
 		c.IndentedJSON(http.StatusBadRequest, err.Error())
 		return
 	}
-	_, err = course.UpdateCourse(f.Database, id, newCourse.Name, newCourse.Description, newCourse.EnrollKey)
+
+	pCon := &course.PublicController{Database: f.Database}
+	_, err = pCon.UpdateCourse(id, newCourse.Name, newCourse.Description, newCourse.EnrollKey)
 	if err != nil {
 		log.Errorf("Unable to update course: %s\n", err.Error())
 		c.IndentedJSON(http.StatusBadRequest, err.Error())
@@ -311,4 +320,15 @@ func (f *PublicController) Register(c *gin.Context) {
 	newUser.Password = nil
 	c.Header("Access-Control-Allow-Origin", "*")
 	c.IndentedJSON(http.StatusCreated, newUser)
+}
+
+type ApiService interface {
+	GetCourseById(c *gin.Context)
+	DeleteUserFromCourse(c *gin.Context)
+	GetUsersInCourse(c *gin.Context)
+	GetCoursesFromUser(c *gin.Context)
+	DeleteCourse(c *gin.Context)
+	CreateCourse(c *gin.Context)
+	EnrollUser(c *gin.Context)
+	UpdateCourseById(c *gin.Context)
 }

@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	git.sr.ht/~sircmpwn/getopt v1.0.0
+	github.com/DATA-DOG/go-sqlmock v1.4.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/friendsofgo/errors v0.9.2
 	github.com/gin-gonic/gin v1.7.7

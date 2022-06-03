@@ -15,10 +15,25 @@ import (
 	"learningbay24.de/backend/models"
 )
 
-// GetCourse takes a ID and returns a struct of the course with this ID
-func GetCourse(db *sql.DB, id int) (*models.Course, error) {
+type CourseService interface {
+	GetCourse(id int) (*models.Course, error)
+	CreateCourse(name string, description null.String, enrollkey string, usersid int) (int, error)
+	UpdateCourse(id int, name string, description null.String, enrollkey string) (int, error)
+	DeleteCourse(id int) (int, error)
+	GetCoursesFromUser(uid int) (models.CourseSlice, error)
+	GetUsersInCourse(cid int) (models.UserSlice, error)
+	DeleteUserFromCourse(uid int, cid int) error
+	EnrollUser(uid int, cid int, enrollkey string) (*models.User, error)
+}
 
-	c, err := models.FindCourse(context.Background(), db, id)
+type PublicController struct {
+	Database *sql.DB
+}
+
+// GetCourse takes a ID and returns a struct of the course with this ID
+func (p *PublicController) GetCourse(id int) (*models.Course, error) {
+
+	c, err := models.FindCourse(context.Background(), p.Database, id)
 	if err != nil {
 		return nil, err
 	}
@@ -27,11 +42,10 @@ func GetCourse(db *sql.DB, id int) (*models.Course, error) {
 
 // CreateCourse takes a name,enrollkey and description and adds a course and forum with that Name in the Database while userid is an array of IDs that is used to assign the role of the creator
 // and the roles for tutor
-func CreateCourse(db *sql.DB, name string, description null.String, enrollkey string, usersid int) (int, error) {
+func (p *PublicController) CreateCourse(name string, description null.String, enrollkey string, usersid int) (int, error) {
 	// TODO: implement check for certificates
-
 	// Begins the transaction
-	tx, err := db.BeginTx(context.Background(), nil)
+	tx, err := p.Database.BeginTx(context.Background(), nil)
 	if err != nil {
 		return 0, err
 	}
@@ -78,8 +92,8 @@ func CreateCourse(db *sql.DB, name string, description null.String, enrollkey st
 }
 
 // UpdateCourse takes the ID of a existing course and the already existing fields for name,enrollkey and description and overwrites the corespoding course and forum with the new Strings(name,enrollkey and description)
-func UpdateCourse(db *sql.DB, id int, name string, description null.String, enrollkey string) (int, error) {
-	tx, err := db.BeginTx(context.Background(), nil)
+func (p *PublicController) UpdateCourse(id int, name string, description null.String, enrollkey string) (int, error) {
+	tx, err := p.Database.BeginTx(context.Background(), nil)
 	if err != nil {
 		return 0, err
 	}
@@ -132,13 +146,13 @@ func UpdateCourse(db *sql.DB, id int, name string, description null.String, enro
 }
 
 // DeleteCourse takes a ID and deletes the course and the forum associated with it
-func DeleteCourse(db *sql.DB, id int) (int, error) {
-	tx, err := db.BeginTx(context.Background(), nil)
+func (p *PublicController) DeleteCourse(id int) (int, error) {
+	tx, err := p.Database.BeginTx(context.Background(), nil)
 	if err != nil {
 		return 0, err
 	}
 	// Check if there are more users in the course besides the creator
-	userhascourse, err := models.UserHasCourses(models.UserHasCourseWhere.CourseID.EQ(id)).Count(context.Background(), db)
+	userhascourse, err := models.UserHasCourses(models.UserHasCourseWhere.CourseID.EQ(id)).Count(context.Background(), p.Database)
 	if err != nil {
 		return 0, err
 	}
@@ -146,12 +160,12 @@ func DeleteCourse(db *sql.DB, id int) (int, error) {
 		return 0, errors.New("there are still people enrolled in the course besides the creator")
 	}
 	// Get the creator of the course
-	userinc, err := GetUsersInCourse(db, id)
+	userinc, err := p.GetUsersInCourse(id)
 	if err != nil {
 		return 0, err
 	}
 	// Its just creator in the course so delete him
-	err = DeleteUserFromCourse(db, userinc[0].ID, id)
+	err = p.DeleteUserFromCourse(userinc[0].ID, id)
 	if err != nil {
 		return 0, err
 	}
@@ -193,7 +207,7 @@ func DeleteCourse(db *sql.DB, id int) (int, error) {
 			return 0, err
 		}
 
-		err = coursematerial.DeleteAllMaterialsFromCourse(db, id, false)
+		err = coursematerial.DeleteAllMaterialsFromCourse(p.Database, id, false)
 		if e := tx.Commit(); e != nil {
 			return 0, fmt.Errorf("fatal: unable to commit transaction on error: %s; %s", err, e)
 		}
@@ -224,13 +238,13 @@ func DeleteCourse(db *sql.DB, id int) (int, error) {
 }
 
 // GetCoursesFromUser takes the ID of a User and returns a slice of Courses in which he is enrolled
-func GetCoursesFromUser(db *sql.DB, uid int) (models.CourseSlice, error) {
+func (p *PublicController) GetCoursesFromUser(uid int) (models.CourseSlice, error) {
 
 	courses, err := models.Courses(
 		qm.From(models.TableNames.UserHasCourse),
 		qm.Where("user_has_course.user_id=?", uid),
 		qm.And("user_has_course.course_id = course.id"),
-	).All(context.Background(), db)
+	).All(context.Background(), p.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -239,13 +253,13 @@ func GetCoursesFromUser(db *sql.DB, uid int) (models.CourseSlice, error) {
 }
 
 // GetUserCourses takes the ID of a Course and returns a slice of Users which are enrolled in it
-func GetUsersInCourse(db *sql.DB, cid int) (models.UserSlice, error) {
+func (p *PublicController) GetUsersInCourse(cid int) (models.UserSlice, error) {
 
 	users, err := models.Users(
 		qm.From(models.TableNames.UserHasCourse),
 		qm.Where("user_has_course.course_id=?", cid),
 		qm.And("user_has_course.user_id = user.id"),
-	).All(context.Background(), db)
+	).All(context.Background(), p.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -254,9 +268,9 @@ func GetUsersInCourse(db *sql.DB, cid int) (models.UserSlice, error) {
 }
 
 // DeleteUserFromCourse takes a UserID and a CourseID and deletes the corresponding entry in the table "user_has_course"
-func DeleteUserFromCourse(db *sql.DB, uid int, cid int) error {
+func (p *PublicController) DeleteUserFromCourse(uid int, cid int) error {
 
-	tx, err := db.BeginTx(context.Background(), nil)
+	tx, err := p.Database.BeginTx(context.Background(), nil)
 	if err != nil {
 
 		return err
@@ -287,9 +301,9 @@ func DeleteUserFromCourse(db *sql.DB, uid int, cid int) error {
 }
 
 // EnrollUser takes a UserID, CourseID and Enrollkey and adds the User to the course if the enrollkey is correct
-func EnrollUser(db *sql.DB, uid int, cid int, enrollkey string) (*models.User, error) {
+func (p *PublicController) EnrollUser(uid int, cid int, enrollkey string) (*models.User, error) {
 
-	tx, err := db.BeginTx(context.Background(), nil)
+	tx, err := p.Database.BeginTx(context.Background(), nil)
 	if err != nil {
 
 		return nil, err
